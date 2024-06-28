@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.metrics import bbox_iou
+from utils.metrics import bbox_iou, bbox_dice
 from utils.torch_utils import de_parallel
 
 
