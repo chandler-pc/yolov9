@@ -46,7 +46,9 @@ def save_one_json(predn, jdict, path, class_map):
             'category_id': class_map[int(p[5])],
             'bbox': [round(x, 3) for x in b],
             'score': round(p[4], 5)})
-
+class OWO:
+  dices = []
+  counter_dice = 0
 
 def process_batch(detections, labels, iouv):
     """
@@ -59,6 +61,7 @@ def process_batch(detections, labels, iouv):
     """
     correct = np.zeros((detections.shape[0], iouv.shape[0])).astype(bool)
     iou = box_iou(labels[:, 1:], detections[:, :4])
+    OWO.dices.append(box_dice(labels[:, 1:], detections[:, :4]))
     correct_class = labels[:, 0:1] == detections[:, 5]
     for i in range(len(iouv)):
         x = torch.where((iou >= iouv[i]) & correct_class)  # IoU > threshold and classes match
@@ -70,8 +73,17 @@ def process_batch(detections, labels, iouv):
                 # matches = matches[matches[:, 2].argsort()[::-1]]
                 matches = matches[np.unique(matches[:, 0], return_index=True)[1]]
             correct[matches[:, 1].astype(int), i] = True
-    return torch.tensor(correct, dtype=torch.bool, device=iouv.device)
 
+    if(len(OWO.dices) == 58):
+      with open('/content/ola.dat','a') as f:
+        all_tensors = torch.cat([t.view(-1) for t in OWO.dices])
+        mask = all_tensors != 0
+        non_zero_elements = all_tensors[mask]
+        mean_non_zero = non_zero_elements.mean()
+        f.write('🦊 Epoch {} : {}\n'.format(OWO.counter_dice,mean_non_zero))
+        OWO.dices = []
+        OWO.counter_dice+=1
+    return torch.tensor(correct, dtype=torch.bool, device=iouv.device)
 
 @smart_inference_mode()
 def run(
@@ -237,8 +249,6 @@ def run(
                 if plots:
                     confusion_matrix.process_batch(predn, labelsn)
 
-                dice = bbox_dice(predn[:, :4], tbox)
-                dice_scores.append(dice.item())
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
             # Save/log
@@ -280,8 +290,6 @@ def run(
         shape = (batch_size, 3, imgsz, imgsz)
         LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {shape}' % t)
 
-    avg_dice = sum(dice_scores) / len(dice_scores) if dice_scores else 0
-    LOGGER.info(f'Average Dice Coefficient: {avg_dice:.4f}')
     # Plots
     if plots:
         confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
