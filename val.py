@@ -58,9 +58,8 @@ def process_batch(detections, labels, iouv):
         correct (array[N, 10]), for 10 IoU levels
     """
     correct = np.zeros((detections.shape[0], iouv.shape[0])).astype(bool)
-    print("🙂 Detections :", detections)
-    print("🙂 Labels :", labels)
-    exit()
+    print("🙂 Detections",len(detections))
+    print("🙂 Labels :", len(labels))
     iou = box_iou(labels[:, 1:], detections[:, :4])
     dice = box_dice(labels[:, 1:], detections[:, :4])
     print("🙂 Dice :", dice)
