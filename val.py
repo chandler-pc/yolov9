@@ -58,11 +58,7 @@ def process_batch(detections, labels, iouv):
         correct (array[N, 10]), for 10 IoU levels
     """
     correct = np.zeros((detections.shape[0], iouv.shape[0])).astype(bool)
-    print("🙂 Detections",len(detections))
-    print("🙂 Labels :", len(labels))
     iou = box_iou(labels[:, 1:], detections[:, :4])
-    dice = box_dice(labels[:, 1:], detections[:, :4])
-    print("🙂 Dice :", dice)
     correct_class = labels[:, 0:1] == detections[:, 5]
     for i in range(len(iouv)):
         x = torch.where((iou >= iouv[i]) & correct_class)  # IoU > threshold and classes match
@@ -211,6 +207,7 @@ def run(
                                         max_det=max_det)
 
         # Metrics
+        dice_scores = []  # Store Dice scores
         for si, pred in enumerate(preds):
             labels = targets[targets[:, 0] == si, 1:]
             nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
@@ -239,6 +236,9 @@ def run(
                 correct = process_batch(predn, labelsn, iouv)
                 if plots:
                     confusion_matrix.process_batch(predn, labelsn)
+
+                dice = box_dice(predn[:, :4], tbox)
+                dice_scores.append(dice.item())
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
             # Save/log
@@ -280,6 +280,8 @@ def run(
         shape = (batch_size, 3, imgsz, imgsz)
         LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {shape}' % t)
 
+    avg_dice = sum(dice_scores) / len(dice_scores) if dice_scores else 0
+    LOGGER.info(f'Average Dice Coefficient: {avg_dice:.4f}')
     # Plots
     if plots:
         confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
